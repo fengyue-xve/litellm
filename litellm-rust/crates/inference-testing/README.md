@@ -10,7 +10,9 @@ Set `LITELLM_LIVE_<ROUTE>_<PROVIDER>_MODEL` to the latest model available to the
 
 ## Messages
 
-Completion checks text and usage. Streaming consumes SSE to completion and checks text, usage and the terminal event. Tool round trips force a tool call and send its returned ID back with a result. Each case checks provider execution facts and rejects cache results
+Completion checks text and usage. Streaming consumes SSE to completion and checks text, usage and the terminal event. Tool round trips request a tool call and send its returned ID back with a result. Each case checks provider execution facts and rejects cache results
+
+Messages setup and assertions live in `inference-messages/tests/live/support.rs`. Provider modules under `tests/live/` select their payloads and tool policy. The shared helpers consume streams completely and reconstruct text, thinking signatures and tool arguments for the follow-up request
 
 The initial provider cases are `github_copilot`, `bedrock` and `edenai`. A registered ignored case is available coverage, not evidence that it passed against that provider
 
