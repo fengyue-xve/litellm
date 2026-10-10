@@ -108,7 +108,7 @@ fn call(provider: &str, payload: Value) -> MessagesCall {
 
 fn complete(response: MessagesCallResponse) -> Box<MessagesResponse> {
     match response {
-        MessagesCallResponse::Complete(message) => message,
+        MessagesCallResponse::Complete(message) => message.body,
         MessagesCallResponse::Stream { .. } => panic!("a complete request returned a stream"),
     }
 }
