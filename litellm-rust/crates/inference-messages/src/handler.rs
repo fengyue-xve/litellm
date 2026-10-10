@@ -60,6 +60,7 @@ impl MessagesRoute {
         };
         let authenticated =
             resolve_auth(&self.auth, environment, &|key| std::env::var(key).ok()).await?;
+        let resolved_url = authenticated.url.unwrap_or(url);
         let identity = ProviderIdentity {
             model: request_context.model.clone(),
             provider: request_context.custom_llm_provider.clone(),
@@ -73,7 +74,7 @@ impl MessagesRoute {
             .interceptors
             .before_provider_request(
                 WireRequest {
-                    url,
+                    url: resolved_url,
                     headers: wire_headers,
                     body: wire_body,
                 },
@@ -124,6 +125,7 @@ impl MessagesRoute {
             Authenticated {
                 headers: wire.headers,
                 signer,
+                url: None,
             },
             &wire.url,
             &wire.body,

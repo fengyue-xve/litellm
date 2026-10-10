@@ -101,6 +101,9 @@ fn native_error(py: Python<'_>, error: Error) -> PyResult<PyErr> {
             body,
             headers,
         }) => upstream_error(py, status, body, headers),
+        Error::Auth(litellm_auth::Error::ProviderAuthentication(message)) => {
+            upstream_error(py, 401, message, Vec::new())
+        }
         Error::InvalidRequest(message) => {
             let error = PyValueError::new_err(message.to_string());
             error.value(py).setattr(REQUEST_ERROR_MARKER, true)?;
@@ -522,6 +525,9 @@ mod tests {
     #[case::rejected_request(Error::InvalidRequest("does not support top_k=5".into()), true)]
     #[case::missing_field(Error::MissingField("max_tokens"), true)]
     #[case::unresolvable_provider(Error::InvalidProvider("openai".into()), false)]
+    #[case::authentication_failure(
+        Error::Auth(litellm_auth::Error::ProviderAuthentication("login required".into())), false
+    )]
     #[case::upstream_failure(
         Error::Transport(TransportError::Http { status: 400, body: "bad".into(), headers: Vec::new() }),
         false,
@@ -595,6 +601,38 @@ mod tests {
                 .unwrap();
             let host = MessagesPythonHost::new(request.unbind(), true);
             assert_eq!(host.provider(py).unwrap(), expected_provider);
+        });
+    }
+
+    #[test]
+    fn authentication_failures_keep_the_unauthorized_status_for_public_mapping() {
+        Python::initialize();
+        Python::attach(|py| {
+            let failure = native_error(
+                py,
+                Error::Auth(litellm_auth::Error::ProviderAuthentication(
+                    "login required".into(),
+                )),
+            )
+            .unwrap();
+            assert_eq!(
+                failure
+                    .value(py)
+                    .getattr("args")
+                    .unwrap()
+                    .extract::<(u16, String)>()
+                    .unwrap(),
+                (401, "login required".into())
+            );
+            assert_eq!(
+                failure
+                    .value(py)
+                    .getattr("headers")
+                    .unwrap()
+                    .extract::<Vec<(String, String)>>()
+                    .unwrap(),
+                Vec::new()
+            );
         });
     }
 }
