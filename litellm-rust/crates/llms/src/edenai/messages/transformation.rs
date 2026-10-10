@@ -1,31 +1,30 @@
-use litellm_auth::{CredentialPlacement, SecretValue};
-use litellm_core_utils::settings::resolve_non_empty;
-use litellm_llms_types::formats::messages::{
-    MessagesOptionalParams, MessagesRequest, MessagesResponse,
+use litellm_llms_types::{
+    billing::BilledAmount,
+    formats::messages::{MessagesRequest, MessagesResponse},
+    providers::edenai::EdenAIResponseExtension,
 };
 use litellm_router_types::LitellmParams;
 use serde_json::Value;
 
 use crate::{
     Error,
-    anthropic::{
-        common_utils::{filter_billing_headers_from_system, has_anthropic_credential},
-        messages::transformation::{DEFAULT_HEADERS, update_headers_with_anthropic_beta},
+    anthropic::messages::transformation::{DEFAULT_HEADERS, update_headers_with_anthropic_beta},
+    base_llm::messages::{
+        context::MessagesTransformContext,
+        transformation::{BaseMessagesConfig, Headers, ValidatedEnvironment},
     },
-    base_llm::{
-        auth::AuthScheme,
-        messages::{
-            context::MessagesTransformContext,
-            transformation::{BaseMessagesConfig, Headers, ValidatedEnvironment},
-        },
+    openai_like::messages::transformation::{
+        compatible_host_environment, compatible_host_url, portable_cache_control,
+        without_billing_blocks,
     },
-    openai_like::messages::transformation::{complete_messages_url, portable_cache_control},
 };
 
 const API_KEY_ENV: &str = "EDENAI_API_KEY";
 const API_BASE_ENV: &str = "EDENAI_API_BASE";
 const DEFAULT_BASE: &str = "https://api.edenai.run/v3";
 
+/// Eden AI resells Claude behind its own bearer key, accepts only portable cache hints, and
+/// reports the amount it billed as a top-level `cost` on the response.
 pub struct EdenAIAnthropicMessagesConfig;
 pub const EDENAI_MESSAGES_CONFIG: EdenAIAnthropicMessagesConfig = EdenAIAnthropicMessagesConfig;
 
@@ -38,9 +37,12 @@ impl BaseMessagesConfig for EdenAIAnthropicMessagesConfig {
         _stream: bool,
         env: &dyn Fn(&str) -> Option<String>,
     ) -> Result<String, Error> {
-        let base = resolve_non_empty(api_base, env, &[API_BASE_ENV])
-            .unwrap_or_else(|| DEFAULT_BASE.into());
-        Ok(complete_messages_url(&base))
+        Ok(compatible_host_url(
+            api_base,
+            API_BASE_ENV,
+            DEFAULT_BASE,
+            env,
+        ))
     }
 
     fn transform_anthropic_messages_request(
@@ -48,16 +50,7 @@ impl BaseMessagesConfig for EdenAIAnthropicMessagesConfig {
         request: MessagesRequest,
         _context: &MessagesTransformContext,
     ) -> Result<MessagesRequest, Error> {
-        Ok(MessagesRequest {
-            params: MessagesOptionalParams {
-                system: request
-                    .params
-                    .system
-                    .and_then(filter_billing_headers_from_system),
-                ..request.params
-            },
-            ..request
-        })
+        Ok(without_billing_blocks(request))
     }
 
     fn secret_names(&self) -> &'static [&'static str] {
@@ -72,25 +65,7 @@ impl BaseMessagesConfig for EdenAIAnthropicMessagesConfig {
         _params: &LitellmParams,
         env: &dyn Fn(&str) -> Option<String>,
     ) -> Result<ValidatedEnvironment, Error> {
-        let key = resolve_non_empty(api_key, env, &[API_KEY_ENV]).ok_or(Error::Auth(
-            litellm_auth::Error::MissingApiKey {
-                provider: "Eden AI",
-                environment_variable: API_KEY_ENV,
-            },
-        ))?;
-        if has_anthropic_credential(&headers) {
-            return Ok(ValidatedEnvironment {
-                headers,
-                auth: AuthScheme::Forwarded,
-            });
-        }
-        Ok(ValidatedEnvironment {
-            headers,
-            auth: AuthScheme::Credential {
-                placement: CredentialPlacement::Bearer,
-                secret: SecretValue::new(key),
-            },
-        })
+        compatible_host_environment(headers, api_key, "Eden AI", API_KEY_ENV, env)
     }
 
     fn default_headers(&self) -> &'static [(&'static str, &'static str)] {
@@ -106,14 +81,8 @@ impl BaseMessagesConfig for EdenAIAnthropicMessagesConfig {
     }
 
     fn reported_cost(&self, response: &MessagesResponse) -> Option<serde_json::Number> {
-        let cost = match response.extra.get("cost")? {
-            Value::Number(cost) => cost.as_f64()?,
-            Value::String(cost) => cost.parse::<f64>().ok()?,
-            _ => return None,
-        };
-        if cost < 0.0 {
-            return None;
-        }
-        serde_json::Number::from_f64(cost)
+        let extension: EdenAIResponseExtension =
+            serde_json::from_value(Value::Object(response.extra.clone())).ok()?;
+        extension.cost.map(BilledAmount::into_number)
     }
 }

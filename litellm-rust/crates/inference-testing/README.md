@@ -14,7 +14,7 @@ Completion checks text and usage. Streaming consumes SSE to completion and check
 
 Messages setup and assertions live in `inference-messages/tests/live/support.rs`. Provider modules under `tests/live/` select their payloads and tool policy. The shared helpers consume streams completely and reconstruct text, thinking signatures and tool arguments for the follow-up request
 
-The initial provider cases are `github_copilot`, `bedrock` and `edenai`. A registered ignored case is available coverage, not evidence that it passed against that provider
+The initial provider cases are `github_copilot`, `bedrock`, `edenai` and `openrouter`. A registered ignored case is available coverage, not evidence that it passed against that provider
 
 Run one provider's cases explicitly
 
@@ -27,11 +27,11 @@ LITELLM_LIVE_MESSAGES_GITHUB_COPILOT_MODEL=github_copilot/<enabled-claude-model>
 
 Replace `<enabled-claude-model>` with a current model enabled on the account. Copilot uses the existing device login under `~/.config/litellm/github_copilot`, or `GITHUB_COPILOT_TOKEN_DIR`. It acquires and refreshes the inference session through the production Rust authentication service. Merely appearing in Copilot's `/models` response does not mean a model's policy is enabled
 
-For Bedrock, set `LITELLM_LIVE_MESSAGES_BEDROCK_MODEL` to a supported Claude Invoke model or inference profile. Configure AWS credentials through the existing credential chain, or `AWS_BEARER_TOKEN_BEDROCK`, and the required region. For EdenAI, set `LITELLM_LIVE_MESSAGES_EDENAI_MODEL` and `EDENAI_API_KEY`. Select `bedrock` or `edenai` instead of `github_copilot` in the command. EdenAI requires a production token for live coverage, because sandbox tokens return dummy responses
+For Bedrock, set `LITELLM_LIVE_MESSAGES_BEDROCK_MODEL` to a supported Claude Invoke model or inference profile. Configure AWS credentials through the existing credential chain, or `AWS_BEARER_TOKEN_BEDROCK`, and the required region. For EdenAI, set `LITELLM_LIVE_MESSAGES_EDENAI_MODEL` and `EDENAI_API_KEY`. For OpenRouter, set `LITELLM_LIVE_MESSAGES_OPENROUTER_MODEL` and `OPENROUTER_API_KEY`. Select `bedrock`, or `compatible_hosts` with the provider's case name, instead of `github_copilot` in the command. EdenAI requires a production token for live coverage, because sandbox tokens return dummy responses
 
 Copilot cases live in `inference-messages/tests/live/github_copilot.rs`. They cover system messages, caller credential and base isolation, text streaming, and complete and streaming tool round trips. Copilot uses automatic tool selection and the stream helper accepts its final `[DONE]` frame
 
-EdenAI cases live in `inference-messages/tests/live/edenai.rs`. They cover system messages, portable cache hints, provider-reported cost handoff, text streaming, and complete and streaming tool round trips. The cost assertion compares the public response with the execution facts instead of pinning a vendor price
+Anthropic-compatible host cases live in `inference-messages/tests/live/compatible_hosts.rs`, with EdenAI and OpenRouter as `#[values]` of every case. They cover system messages, cache hints, provider-reported cost handoff, text streaming, and complete and streaming tool round trips. The cost assertion reads the amount from the public response through the provider's own config and compares it with the settled execution facts instead of pinning a vendor price
 
 Bedrock cases live in `inference-messages/tests/live/bedrock.rs`. They cover completion with plain and system messages, unknown field filtering, plain and explicit Invoke model paths, text streaming, and complete and streaming tool round trips. Streaming checks the returned SSE content type, terminal event, usage and tool argument reconstruction
 
