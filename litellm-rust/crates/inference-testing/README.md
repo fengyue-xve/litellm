@@ -29,6 +29,8 @@ Replace `<enabled-claude-model>` with a current model enabled on the account. Co
 
 For Bedrock, set `LITELLM_LIVE_MESSAGES_BEDROCK_MODEL` to a supported Claude Invoke model or inference profile. Configure AWS credentials through the existing credential chain, or `AWS_BEARER_TOKEN_BEDROCK`, and the required region. For EdenAI, set `LITELLM_LIVE_MESSAGES_EDENAI_MODEL` and `EDENAI_API_KEY`. Select `bedrock` or `edenai` instead of `github_copilot` in the command. EdenAI requires a production token for live coverage, because sandbox tokens return dummy responses
 
+Copilot cases live in `inference-messages/tests/live/github_copilot.rs`. They cover system messages, caller credential and base isolation, text streaming, and complete and streaming tool round trips. Copilot uses automatic tool selection and the stream helper accepts its final `[DONE]` frame
+
 EdenAI cases live in `inference-messages/tests/live/edenai.rs`. They cover system messages, portable cache hints, provider-reported cost handoff, text streaming, and complete and streaming tool round trips. The cost assertion compares the public response with the execution facts instead of pinning a vendor price
 
 Bedrock cases live in `inference-messages/tests/live/bedrock.rs`. They cover completion with plain and system messages, unknown field filtering, plain and explicit Invoke model paths, text streaming, and complete and streaming tool round trips. Streaming checks the returned SSE content type, terminal event, usage and tool argument reconstruction

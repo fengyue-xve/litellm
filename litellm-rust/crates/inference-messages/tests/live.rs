@@ -6,3 +6,6 @@ mod bedrock;
 
 #[path = "live/edenai.rs"]
 mod edenai;
+
+#[path = "live/github_copilot.rs"]
+mod github_copilot;
