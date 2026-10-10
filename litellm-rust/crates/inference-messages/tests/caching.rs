@@ -276,7 +276,9 @@ async fn provider_reported_cost_is_delivered_once_and_never_charged_for_a_cache_
     else {
         panic!("expected Messages responses");
     };
-    assert_eq!(first, second);
+    assert_eq!(first.body, second.body);
+    assert!(!first.headers.is_empty());
+    assert!(second.headers.is_empty());
     assert_eq!(first.extra.get("cost"), Some(&cost));
     assert_eq!(support::received(&upstream).await.len(), 1);
     let facts = hooks.facts.lock().unwrap();
