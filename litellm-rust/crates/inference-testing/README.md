@@ -27,6 +27,18 @@ Replace `<enabled-claude-model>` with a current model enabled on the account. Co
 
 For Bedrock, set `LITELLM_LIVE_MESSAGES_BEDROCK_MODEL` to a supported Claude Invoke model or inference profile. Configure AWS credentials through the existing credential chain, or `AWS_BEARER_TOKEN_BEDROCK`, and the required region. For EdenAI, set `LITELLM_LIVE_MESSAGES_EDENAI_MODEL` and `EDENAI_API_KEY`. Select `bedrock` or `edenai` instead of `github_copilot` in the command
 
+Bedrock cases live in `inference-messages/tests/live/bedrock.rs`. They cover completion with plain and system messages, unknown field filtering, plain and explicit Invoke model paths, text streaming, and complete and streaming tool round trips. Streaming checks the returned SSE content type, terminal event, usage and tool argument reconstruction
+
+Tool cases require a model that supports forced `tool_choice`. A provider rejection fails the selected case instead of skipping it
+
+Export `AWS_BEARER_TOKEN_BEDROCK`, `AWS_REGION_NAME` and the model before running the Bedrock cases. An optional endpoint override uses `AWS_BEDROCK_RUNTIME_ENDPOINT`, not `AWS_BEDROCK_ENDPOINT`
+
+```bash
+cargo test --manifest-path litellm-rust/Cargo.toml \
+  -p litellm-inference-messages --test live bedrock \
+  -- --ignored --nocapture --test-threads=1
+```
+
 Select one behavior by its test name, for example `completion::case_1_github_copilot`. To list every available cell without contacting any provider
 
 ```bash
