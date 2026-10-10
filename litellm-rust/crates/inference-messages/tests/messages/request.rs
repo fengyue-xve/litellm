@@ -1028,10 +1028,10 @@ async fn copilot_binds_session_auth_to_its_endpoint_and_preserves_native_message
     match (first, second) {
         (MessagesCallResponse::Complete(first), MessagesCallResponse::Complete(second)) => {
             assert_eq!(
-                *first,
+                *first.body,
                 serde_json::from_value::<MessagesResponse>(message_body()).unwrap()
             );
-            assert_eq!(first, second);
+            assert_eq!(first.body, second.body);
         }
         (
             MessagesCallResponse::Stream { chunks: first, .. },
